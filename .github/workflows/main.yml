@@ -12,18 +12,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: FTP Deploy (FTPS – Stable)
+      - name: FTP Deploy (FTPS)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ secrets.FTP_SERVER }}
+          server: sumuduwheelservice.codeplaystudios.com
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           port: 21
-          security: loose
           local-dir: ./
-          parallel: 1
-          log-level: minimal
+          server-dir: public_html/
+          security: loose
