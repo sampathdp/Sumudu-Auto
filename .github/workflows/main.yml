@@ -24,3 +24,5 @@ jobs:
           local-dir: ./
           server-dir: public_html/
           security: loose
+          timeout: 60000
+          log-level: verbose
