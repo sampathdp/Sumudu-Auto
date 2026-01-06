@@ -1,0 +1,3 @@
+[22-Dec-2025 23:39:22 Asia/Colombo] Auto-created invoice INV202512220001 for service JOB202512220001 with pending payment
+[23-Dec-2025 13:50:56 Asia/Colombo] Auto-created invoice INV202512230001 for service JOB202512230002 with pending payment
+[23-Dec-2025 13:58:14 Asia/Colombo] Booking Data (Sanitized): {"customer_name":"terst","customer_mobile":"94075445333","customer_email":"","registration_number":"WW-1231","vehicle_make":"wr","vehicle_model":"rw","service_package_id":3,"booking_date":"2025-12-23","booking_time":"13:00:00","estimated_duration":120,"notes":"","total_amount":2500}
