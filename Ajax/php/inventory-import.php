@@ -3,6 +3,7 @@
  * Inventory Import/Export AJAX Handler
  */
 session_start();
+require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../classes/Database.php';
 require_once __DIR__ . '/../../classes/InventoryImport.php';
 

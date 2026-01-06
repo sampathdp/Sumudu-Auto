@@ -406,37 +406,100 @@ class InventoryImport {
     }
     
     /**
-     * Insert new inventory item
+     * Insert new inventory item with opening stock handling
+     * Creates batch and movement records for FIFO tracking
      */
     private function insertItem($data, $categoryId, $rowNum) {
-        $query = "INSERT INTO inventory_items 
-                  (company_id, item_code, item_name, description, category_id, unit_of_measure, 
-                   current_stock, reorder_level, max_stock_level, unit_cost, unit_price, is_active)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $openingStock = (float)($data['current_stock'] ?? 0);
+        $unitCost = (float)($data['unit_cost'] ?? 0);
         
-        $params = [
-            $this->companyId,
-            $data['item_code'],
-            $data['item_name'],
-            $data['description'] ?? null,
-            $categoryId,
-            $data['unit_of_measure'],
-            (float)($data['current_stock'] ?? 0),
-            (float)($data['reorder_level'] ?? 0),
-            !empty($data['max_stock_level']) ? (float)$data['max_stock_level'] : null,
-            (float)($data['unit_cost'] ?? 0),
-            (float)($data['unit_price'] ?? 0),
-            isset($data['is_active']) ? (int)$data['is_active'] : 1
-        ];
+        // Start transaction for data integrity
+        $this->db->beginTransaction();
         
-        $result = $this->db->prepareExecute($query, $params);
-        
-        if (!$result) {
-            $this->errors[] = ['row' => $rowNum, 'error' => 'Database error inserting item'];
+        try {
+            // 1. Insert the inventory item
+            $query = "INSERT INTO inventory_items 
+                      (company_id, item_code, item_name, description, category_id, unit_of_measure, 
+                       current_stock, reorder_level, max_stock_level, unit_cost, unit_price, is_active)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            
+            $params = [
+                $this->companyId,
+                $data['item_code'],
+                $data['item_name'],
+                $data['description'] ?? null,
+                $categoryId,
+                $data['unit_of_measure'],
+                $openingStock,
+                (float)($data['reorder_level'] ?? 0),
+                !empty($data['max_stock_level']) ? (float)$data['max_stock_level'] : null,
+                $unitCost,
+                (float)($data['unit_price'] ?? 0),
+                isset($data['is_active']) ? (int)$data['is_active'] : 1
+            ];
+            
+            $result = $this->db->prepareExecute($query, $params);
+            
+            if (!$result) {
+                throw new Exception('Failed to insert item');
+            }
+            
+            $itemId = $this->db->getLastInsertId();
+            
+            // 2. If opening stock > 0, create batch and movement records
+            if ($openingStock > 0) {
+                $today = date('Y-m-d');
+                
+                // Create opening batch for FIFO tracking
+                $batchQuery = "INSERT INTO inventory_batches 
+                              (company_id, item_id, batch_number, quantity_initial, quantity_remaining, 
+                               unit_cost, received_date, is_active)
+                              VALUES (?, ?, ?, ?, ?, ?, ?, 1)";
+                
+                $batchNumber = 'OPENING-' . $data['item_code'];
+                
+                $batchResult = $this->db->prepareExecute($batchQuery, [
+                    $this->companyId,
+                    $itemId,
+                    $batchNumber,
+                    $openingStock,
+                    $openingStock,
+                    $unitCost,
+                    $today
+                ]);
+                
+                if (!$batchResult) {
+                    throw new Exception('Failed to create opening batch');
+                }
+                
+                // Create stock movement for audit trail
+                $movementQuery = "INSERT INTO stock_movements 
+                                 (company_id, item_id, movement_type, reference_type, 
+                                  quantity_change, balance_after, unit_cost, notes, created_at)
+                                 VALUES (?, ?, 'adjustment', 'opening_balance', ?, ?, ?, ?, NOW())";
+                
+                $movementResult = $this->db->prepareExecute($movementQuery, [
+                    $this->companyId,
+                    $itemId,
+                    $openingStock,
+                    $openingStock,
+                    $unitCost,
+                    'Opening balance from import - ' . date('Y-m-d H:i:s')
+                ]);
+                
+                if (!$movementResult) {
+                    throw new Exception('Failed to create stock movement');
+                }
+            }
+            
+            $this->db->commit();
+            return true;
+            
+        } catch (Exception $e) {
+            $this->db->rollback();
+            $this->errors[] = ['row' => $rowNum, 'error' => $e->getMessage()];
             return false;
         }
-        
-        return true;
     }
     
     /**

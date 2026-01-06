@@ -455,6 +455,7 @@ class UserPermission
                 'Supplier' => 'views/Supplier/',
                 'InventoryCategory' => 'views/InventoryCategory/',
                 'InventoryItem' => 'views/InventoryItem/',
+                'InventoryImport' => 'views/InventoryItem/import.php',
                 'GRN' => 'views/GRN/',
                 'Invoice' => 'views/Invoice/',
                 'Reports' => 'views/Reports/',

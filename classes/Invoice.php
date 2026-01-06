@@ -147,13 +147,21 @@ class Invoice
         if ($success) {
             $this->id = $this->db->getLastInsertId();
             
-            // Record Financial Transaction if paid immediately (Cash Sale)
-            if (!empty($this->payment_method) && !empty($this->account_id)) {
-                $this->recordFinancialTransaction();
-            }
+            // Determine bill type - default to cash if not set
+            $billType = $this->bill_type ?? 'cash';
             
-            // Record Customer Ledger entry for Credit Bills (customer owes money)
-            if ($this->bill_type === 'credit' && !empty($this->customer_id) && $this->total_amount > 0) {
+            if ($billType === 'cash' && $this->total_amount > 0) {
+                // Cash Sale - Record Financial Transaction
+                // If no account_id provided, try to get default cash account
+                if (empty($this->account_id)) {
+                    $this->account_id = $this->getDefaultCashAccount();
+                }
+                
+                if (!empty($this->account_id)) {
+                    $this->recordFinancialTransaction();
+                }
+            } elseif ($billType === 'credit' && !empty($this->customer_id) && $this->total_amount > 0) {
+                // Credit Sale - Record Customer Ledger entry (customer owes money)
                 $customerLedger = new CustomerLedger();
                 $customerLedger->recordInvoice(
                     $this->company_id,
@@ -162,12 +170,29 @@ class Invoice
                     $this->invoice_number,
                     $this->total_amount,
                     date('Y-m-d'),
-                    null, // created_by not available here
-                    null  // notes
+                    $_SESSION['id'] ?? null,
+                    null
                 );
             }
         }
         return $success;
+    }
+    
+    /**
+     * Get default cash account for the company
+     */
+    private function getDefaultCashAccount() {
+        $stmt = $this->db->prepareSelect(
+            "SELECT id FROM financial_accounts 
+             WHERE company_id = ? AND account_type = 'cash' AND is_active = 1 
+             ORDER BY is_default DESC, id ASC LIMIT 1",
+            [$this->company_id]
+        );
+        if ($stmt) {
+            $row = $stmt->fetch();
+            return $row ? $row['id'] : null;
+        }
+        return null;
     }
     
     private function recordFinancialTransaction() {

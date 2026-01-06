@@ -1236,7 +1236,8 @@ INSERT INTO `pages` (`id`, `page_name`, `page_route`, `page_category`, `descript
 
 INSERT INTO `pages` (`page_name`, `page_route`, `page_category`, `description`, `icon`, `display_order`, `is_active`) VALUES
 ('Cashbook', 'views/Finance/', 'Finance', 'Daily Cash & Bank Ledger', 'fas fa-book', 55, 1),
-('Financial Accounts', 'views/Finance/accounts.php', 'Finance', 'Manage Cash & Bank Accounts', 'fas fa-wallet', 56, 1);
+('Financial Accounts', 'views/Finance/accounts.php', 'Finance', 'Manage Cash & Bank Accounts', 'fas fa-wallet', 56, 1),
+('Inventory Import', 'views/InventoryItem/import.php', 'Inventory', 'Bulk import products from Excel/CSV', 'fas fa-file-import', 53, 1);
 
 -- Insert default branch for company 1
 INSERT INTO `branches` (`id`, `company_id`, `branch_code`, `branch_name`, `address`, `is_main`, `is_active`) VALUES
@@ -1512,4 +1513,3 @@ COMMIT;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
-
