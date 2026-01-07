@@ -587,19 +587,8 @@ $chartData = getChartData('week', $allServices);
                 <div class="page-inner">
                     <!-- Quick Navigation -->
                     <div class="row mb-4" style="margin-top: 70px;">
-                        <div class="col-lg-3 col-md-6 mb-3 mb-lg-0">
-                            <a href="<?php echo BASE_URL; ?>views/Service/index.php" class="quick-nav-card">
-                                <div class="quick-nav-icon icon-primary">
-                                    <i class="fas fa-car-side"></i>
-                                </div>
-                                <div class="quick-nav-content">
-                                    <span class="quick-nav-title">Service Jobs</span>
-                                    <p class="quick-nav-desc">Manage services</p>
-                                </div>
-                                <i class="fas fa-chevron-right quick-nav-arrow"></i>
-                            </a>
-                        </div>
-                        <div class="col-lg-3 col-md-6 mb-3 mb-lg-0">
+
+                        <div class="col-lg-4 col-md-6 mb-3 mb-lg-0">
                             <a href="<?php echo BASE_URL; ?>views/Invoice/index.php" class="quick-nav-card">
                                 <div class="quick-nav-icon icon-success">
                                     <i class="fas fa-file-invoice-dollar"></i>
@@ -611,7 +600,7 @@ $chartData = getChartData('week', $allServices);
                                 <i class="fas fa-chevron-right quick-nav-arrow"></i>
                             </a>
                         </div>
-                        <div class="col-lg-3 col-md-6 mb-3 mb-lg-0">
+                        <div class="col-lg-4 col-md-6 mb-3 mb-lg-0">
                             <a href="<?php echo BASE_URL; ?>views/InventoryItem/index.php" class="quick-nav-card">
                                 <div class="quick-nav-icon icon-warning">
                                     <i class="fas fa-boxes"></i>
@@ -623,7 +612,7 @@ $chartData = getChartData('week', $allServices);
                                 <i class="fas fa-chevron-right quick-nav-arrow"></i>
                             </a>
                         </div>
-                        <div class="col-lg-3 col-md-6">
+                        <div class="col-lg-4 col-md-6">
                             <a href="<?php echo BASE_URL; ?>views/Reports/index.php" class="quick-nav-card">
                                 <div class="quick-nav-icon icon-info">
                                     <i class="fas fa-chart-line"></i>
