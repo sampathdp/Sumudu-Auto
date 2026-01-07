@@ -146,6 +146,14 @@ try {
             $response = ['status' => 'success', 'data' => $categories];
             break;
 
+        case 'search':
+            $term = $_GET['term'] ?? '';
+            $branchId = isset($_GET['branch_id']) ? (int)$_GET['branch_id'] : $sessionBranchId;
+            $item = new InventoryItem();
+            $results = $item->search($term, $sessionCompanyId, $branchId);
+            $response = ['status' => 'success', 'data' => $results];
+            break;
+
         case 'list':
         default:
             $item = new InventoryItem();

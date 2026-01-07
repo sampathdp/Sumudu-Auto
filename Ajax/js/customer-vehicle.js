@@ -54,15 +54,29 @@ $(document).ready(function () {
       dataSrc: "data",
     },
     columns: [
-      { data: "customer_name" },
       {
         data: "registration_number",
         render: (data) => `<span class="reg-number">${data}</span>`,
       },
-      { data: "make" },
-      { data: "model" },
       {
-        data: "year",
+        data: null,
+        render: (data, type, row) => `${row.make} ${row.model}`,
+      },
+      {
+        data: "customer_name",
+        render: (data) => `<span class="fw-semibold">${data}</span>`,
+      },
+      {
+        data: "customer_phone",
+        render: (data) => data || '<span class="text-muted">-</span>',
+      },
+      {
+        data: "current_mileage",
+        render: (data) =>
+          data ? `${data}` : '<span class="text-muted">-</span>',
+      },
+      {
+        data: "last_service_date",
         render: (data) => data || '<span class="text-muted">-</span>',
       },
       {
@@ -93,15 +107,21 @@ $(document).ready(function () {
 
   // Load customers into vehicle modal dropdown
   function loadCustomersDropdown() {
-    $.get(BASE_URL + "Ajax/php/customer.php", { action: "list" }, function (response) {
-      if (response.status === "success" && response.data) {
-        const select = $("#v_customer_id");
-        select.empty().append('<option value="">Select Customer...</option>');
-        response.data.forEach((c) => {
-          select.append(`<option value="${c.id}">${c.name} - ${c.phone}</option>`);
-        });
+    $.get(
+      BASE_URL + "Ajax/php/customer.php",
+      { action: "list" },
+      function (response) {
+        if (response.status === "success" && response.data) {
+          const select = $("#v_customer_id");
+          select.empty().append('<option value="">Select Customer...</option>');
+          response.data.forEach((c) => {
+            select.append(
+              `<option value="${c.id}">${c.name} - ${c.phone}</option>`
+            );
+          });
+        }
       }
-    });
+    );
   }
 
   // Load customers when vehicle modal opens
@@ -120,7 +140,11 @@ $(document).ready(function () {
     }
 
     const btn = $("#saveBothBtn");
-    btn.prop("disabled", true).html('<span class="spinner-border spinner-border-sm me-1"></span> Saving...');
+    btn
+      .prop("disabled", true)
+      .html(
+        '<span class="spinner-border spinner-border-sm me-1"></span> Saving...'
+      );
 
     // Step 1: Create Customer
     const customerData = {
@@ -130,44 +154,66 @@ $(document).ready(function () {
       email: $("#both_email").val(),
     };
 
-    $.post(BASE_URL + "Ajax/php/customer.php", customerData, function (response) {
-      if (response.status === "success" && response.id) {
-        const customerId = response.id;
+    $.post(
+      BASE_URL + "Ajax/php/customer.php",
+      customerData,
+      function (response) {
+        if (response.status === "success" && response.id) {
+          const customerId = response.id;
 
-        // Step 2: Create Vehicle with new customer ID
-        const vehicleData = {
-          action: "create",
-          customer_id: customerId,
-          make: $("#both_make").val(),
-          model: $("#both_model").val(),
-          registration_number: $("#both_registration").val(),
-          year: $("#both_year").val() || null,
-          current_mileage: $("#both_mileage").val() || null,
-        };
+          // Step 2: Create Vehicle with new customer ID
+          const vehicleData = {
+            action: "create",
+            customer_id: customerId,
+            make: $("#both_make").val(),
+            model: $("#both_model").val(),
+            registration_number: $("#both_registration").val(),
+            year: $("#both_year").val() || null,
+            current_mileage: $("#both_mileage").val() || null,
+          };
 
-        $.post(BASE_URL + "Ajax/php/vehicle.php", vehicleData, function (vResponse) {
-          if (vResponse.status === "success") {
-            showAlert("success", "Customer and Vehicle added successfully!");
-            $("#addBothModal").modal("hide");
-            $("#addBothForm")[0].reset();
-            $("#addBothForm").removeClass("was-validated");
-            customersTable.ajax.reload();
-            vehiclesTable.ajax.reload();
-          } else {
-            showAlert("error", vResponse.message || "Failed to add vehicle");
-          }
-        }).fail(function () {
-          showAlert("error", "Error adding vehicle");
-        }).always(function () {
-          btn.prop("disabled", false).html('<i class="fas fa-save me-1"></i>Save Both');
-        });
-      } else {
-        showAlert("error", response.message || "Failed to add customer");
-        btn.prop("disabled", false).html('<i class="fas fa-save me-1"></i>Save Both');
+          $.post(
+            BASE_URL + "Ajax/php/vehicle.php",
+            vehicleData,
+            function (vResponse) {
+              if (vResponse.status === "success") {
+                showAlert(
+                  "success",
+                  "Customer and Vehicle added successfully!"
+                );
+                $("#addBothModal").modal("hide");
+                $("#addBothForm")[0].reset();
+                $("#addBothForm").removeClass("was-validated");
+                customersTable.ajax.reload();
+                vehiclesTable.ajax.reload();
+              } else {
+                showAlert(
+                  "error",
+                  vResponse.message || "Failed to add vehicle"
+                );
+              }
+            }
+          )
+            .fail(function () {
+              showAlert("error", "Error adding vehicle");
+            })
+            .always(function () {
+              btn
+                .prop("disabled", false)
+                .html('<i class="fas fa-save me-1"></i>Save Both');
+            });
+        } else {
+          showAlert("error", response.message || "Failed to add customer");
+          btn
+            .prop("disabled", false)
+            .html('<i class="fas fa-save me-1"></i>Save Both');
+        }
       }
-    }).fail(function () {
+    ).fail(function () {
       showAlert("error", "Error adding customer");
-      btn.prop("disabled", false).html('<i class="fas fa-save me-1"></i>Save Both');
+      btn
+        .prop("disabled", false)
+        .html('<i class="fas fa-save me-1"></i>Save Both');
     });
   });
 
@@ -207,18 +253,22 @@ $(document).ready(function () {
 
   $(document).on("click", ".edit-customer", function () {
     const id = $(this).data("id");
-    $.get(BASE_URL + "Ajax/php/customer.php", { action: "get", id: id }, function (response) {
-      if (response.status === "success" && response.data) {
-        const c = response.data;
-        $("#customer_id").val(c.id);
-        $("#c_name").val(c.name);
-        $("#c_phone").val(c.phone);
-        $("#c_email").val(c.email || "");
-        $("#c_address").val(c.address || "");
-        $("#customerModalLabel").text("Edit Customer");
-        $("#customerModal").modal("show");
+    $.get(
+      BASE_URL + "Ajax/php/customer.php",
+      { action: "get", id: id },
+      function (response) {
+        if (response.status === "success" && response.data) {
+          const c = response.data;
+          $("#customer_id").val(c.id);
+          $("#c_name").val(c.name);
+          $("#c_phone").val(c.phone);
+          $("#c_email").val(c.email || "");
+          $("#c_address").val(c.address || "");
+          $("#customerModalLabel").text("Edit Customer");
+          $("#customerModal").modal("show");
+        }
       }
-    });
+    );
   });
 
   $(document).on("click", ".delete-customer", function () {
@@ -232,15 +282,19 @@ $(document).ready(function () {
       confirmButtonText: "Yes, delete",
     }).then((result) => {
       if (result.isConfirmed) {
-        $.post(BASE_URL + "Ajax/php/customer.php", { action: "delete", id: id }, function (response) {
-          if (response.status === "success") {
-            showAlert("success", "Customer deleted");
-            customersTable.ajax.reload();
-            vehiclesTable.ajax.reload();
-          } else {
-            showAlert("error", response.message || "Failed to delete");
+        $.post(
+          BASE_URL + "Ajax/php/customer.php",
+          { action: "delete", id: id },
+          function (response) {
+            if (response.status === "success") {
+              showAlert("success", "Customer deleted");
+              customersTable.ajax.reload();
+              vehiclesTable.ajax.reload();
+            } else {
+              showAlert("error", response.message || "Failed to delete");
+            }
           }
-        });
+        );
       }
     });
   });
@@ -292,23 +346,27 @@ $(document).ready(function () {
   $(document).on("click", ".edit-vehicle", function () {
     const id = $(this).data("id");
     loadCustomersDropdown();
-    $.get(BASE_URL + "Ajax/php/vehicle.php", { action: "get", id: id }, function (response) {
-      if (response.status === "success" && response.data) {
-        const v = response.data;
-        $("#vehicle_id").val(v.id);
-        setTimeout(function () {
-          $("#v_customer_id").val(v.customer_id);
-        }, 300);
-        $("#v_registration").val(v.registration_number);
-        $("#v_make").val(v.make);
-        $("#v_model").val(v.model);
-        $("#v_year").val(v.year || "");
-        $("#v_color").val(v.color || "");
-        $("#v_mileage").val(v.current_mileage || "");
-        $("#vehicleModalLabel").text("Edit Vehicle");
-        $("#vehicleModal").modal("show");
+    $.get(
+      BASE_URL + "Ajax/php/vehicle.php",
+      { action: "get", id: id },
+      function (response) {
+        if (response.status === "success" && response.data) {
+          const v = response.data;
+          $("#vehicle_id").val(v.id);
+          setTimeout(function () {
+            $("#v_customer_id").val(v.customer_id);
+          }, 300);
+          $("#v_registration").val(v.registration_number);
+          $("#v_make").val(v.make);
+          $("#v_model").val(v.model);
+          $("#v_year").val(v.year || "");
+          $("#v_color").val(v.color || "");
+          $("#v_mileage").val(v.current_mileage || "");
+          $("#vehicleModalLabel").text("Edit Vehicle");
+          $("#vehicleModal").modal("show");
+        }
       }
-    });
+    );
   });
 
   $(document).on("click", ".delete-vehicle", function () {
@@ -322,14 +380,18 @@ $(document).ready(function () {
       confirmButtonText: "Yes, delete",
     }).then((result) => {
       if (result.isConfirmed) {
-        $.post(BASE_URL + "Ajax/php/vehicle.php", { action: "delete", id: id }, function (response) {
-          if (response.status === "success") {
-            showAlert("success", "Vehicle deleted");
-            vehiclesTable.ajax.reload();
-          } else {
-            showAlert("error", response.message || "Failed to delete");
+        $.post(
+          BASE_URL + "Ajax/php/vehicle.php",
+          { action: "delete", id: id },
+          function (response) {
+            if (response.status === "success") {
+              showAlert("success", "Vehicle deleted");
+              vehiclesTable.ajax.reload();
+            } else {
+              showAlert("error", response.message || "Failed to delete");
+            }
           }
-        });
+        );
       }
     });
   });

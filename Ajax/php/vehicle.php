@@ -173,6 +173,66 @@ try {
             $response = ['status' => 'success', 'data' => $vehicles];
             break;
 
+        case 'save_service_history':
+            $vehicleId = (int) ($_POST['vehicle_id'] ?? 0);
+            if (!$vehicleId) {
+                $response['message'] = 'Invalid vehicle ID';
+                break;
+            }
+
+            require_once '../../classes/VehicleServiceHistory.php';
+            $history = new VehicleServiceHistory();
+            $history->company_id = $sessionCompanyId;
+            $history->vehicle_id = $vehicleId;
+            $history->invoice_id = !empty($_POST['invoice_id']) ? (int)$_POST['invoice_id'] : null;
+            $history->service_date = $_POST['service_date'] ?? date('Y-m-d');
+            $history->current_mileage = !empty($_POST['current_mileage']) ? (int)$_POST['current_mileage'] : null;
+            $history->next_service_mileage = !empty($_POST['next_service_mileage']) ? (int)$_POST['next_service_mileage'] : null;
+            $history->next_service_date = !empty($_POST['next_service_date']) ? $_POST['next_service_date'] : null;
+            $history->notes = $_POST['notes'] ?? null;
+
+            if ($history->create()) {
+                // Also update the vehicle's current_mileage and last_service_date
+                $vehicle = new Vehicle($vehicleId);
+                if ($vehicle->id) {
+                    if (!empty($_POST['current_mileage'])) {
+                        $vehicle->current_mileage = (int)$_POST['current_mileage'];
+                    }
+                    $vehicle->last_service_date = $history->service_date;
+                    $vehicle->update();
+                }
+                $response = ['status' => 'success', 'message' => 'Service history saved', 'id' => $history->id];
+            } else {
+                $response['message'] = 'Failed to save service history';
+            }
+            break;
+
+        case 'get_service_history':
+            $vehicleId = (int) ($_GET['vehicle_id'] ?? 0);
+            if (!$vehicleId) {
+                $response['message'] = 'Invalid vehicle ID';
+                break;
+            }
+
+            require_once '../../classes/VehicleServiceHistory.php';
+            $history = new VehicleServiceHistory();
+            $records = $history->getByVehicle($vehicleId, $sessionCompanyId);
+            $response = ['status' => 'success', 'data' => $records];
+            break;
+
+        case 'get_latest_service':
+            $vehicleId = (int) ($_GET['vehicle_id'] ?? 0);
+            if (!$vehicleId) {
+                $response['message'] = 'Invalid vehicle ID';
+                break;
+            }
+
+            require_once '../../classes/VehicleServiceHistory.php';
+            $history = new VehicleServiceHistory();
+            $latest = $history->getLatestByVehicle($vehicleId, $sessionCompanyId);
+            $response = ['status' => 'success', 'data' => $latest];
+            break;
+
         case 'list':
         default:
             $vehicle = new Vehicle();

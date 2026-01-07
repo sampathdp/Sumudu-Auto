@@ -370,31 +370,32 @@ requirePagePermission('View');
         });
 
         function loadServiceHistory(vehicleId) {
-            $.get('../../../Ajax/php/service.php', { action: 'get_by_vehicle', vehicle_id: vehicleId }, function(res) {
+            $.get('../../../Ajax/php/vehicle.php', { action: 'get_service_history', vehicle_id: vehicleId }, function(res) {
                 const container = $('#serviceHistoryContainer');
                 
                 if (res.status === 'success' && res.data && res.data.length > 0) {
                     let html = '';
                     res.data.forEach(s => {
-                        const statusClass = s.status === 'completed' ? '' : (s.status === 'cancelled' ? 'cancelled' : 'pending');
                         html += `
-                            <div class="service-history-item ${statusClass}">
+                            <div class="service-history-item">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
-                                        <strong>${s.job_number}</strong>
-                                        <span class="badge bg-${getStatusColor(s.status)} ms-2">${s.status.toUpperCase()}</span>
+                                        <strong><i class="fas fa-calendar-check text-success me-1"></i>${new Date(s.service_date).toLocaleDateString()}</strong>
+                                        ${s.invoice_id ? `<span class="badge bg-primary ms-2">Invoice #${s.invoice_id}</span>` : ''}
                                     </div>
-                                    <span class="text-muted">${new Date(s.created_at).toLocaleDateString()}</span>
+                                    <span class="text-primary fw-bold">${s.current_mileage ? Number(s.current_mileage).toLocaleString() + ' km' : 'N/A'}</span>
                                 </div>
-                                <div class="mt-1 text-muted small">
-                                    ${s.package_name || 'General Service'} - LKR ${parseFloat(s.total_amount || 0).toFixed(2)}
+                                <div class="mt-2 d-flex flex-wrap gap-2">
+                                    ${s.next_service_mileage ? `<span class="badge bg-warning text-dark"><i class="fas fa-arrow-right me-1"></i>Next: ${Number(s.next_service_mileage).toLocaleString()} km</span>` : ''}
+                                    ${s.next_service_date ? `<span class="badge bg-info"><i class="fas fa-calendar me-1"></i>Next: ${new Date(s.next_service_date).toLocaleDateString()}</span>` : ''}
+                                    ${s.notes ? `<span class="text-muted small"><i class="fas fa-comment me-1"></i>${s.notes}</span>` : ''}
                                 </div>
                             </div>
                         `;
                     });
                     container.html(html);
                 } else {
-                    container.html('<p class="text-muted text-center mb-0">No service history found</p>');
+                    container.html('<p class="text-muted text-center mb-0"><i class="fas fa-info-circle me-1"></i>No service history found</p>');
                 }
             }).fail(function() {
                 $('#serviceHistoryContainer').html('<p class="text-muted text-center mb-0">Could not load service history</p>');

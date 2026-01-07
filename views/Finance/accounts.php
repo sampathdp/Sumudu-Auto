@@ -164,6 +164,13 @@ requirePagePermission('View');
                             <input class="form-check-input" type="checkbox" id="is_active" name="is_active" value="1" checked>
                             <label class="form-check-label" for="is_active">Active Account</label>
                         </div>
+                        
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="is_default" name="is_default" value="1">
+                            <label class="form-check-label" for="is_default">
+                                Set as Default <small class="text-muted">(for this account type)</small>
+                            </label>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -240,6 +247,7 @@ requirePagePermission('View');
         $('#accountForm')[0].reset();
         $('#account_id').val('');
         $('#opening_balance').prop('disabled', false);
+        $('#is_default').prop('checked', false);
         $('#accountModal').modal('show');
         toggleBankFields();
     }
@@ -255,6 +263,7 @@ requirePagePermission('View');
                 $('#account_number').val(acc.account_number);
                 $('#opening_balance').val(acc.opening_balance).prop('disabled', true);
                 $('#is_active').prop('checked', acc.is_active == 1);
+                $('#is_default').prop('checked', acc.is_default == 1);
                 
                 toggleBankFields();
                 $('#accountModal').modal('show');

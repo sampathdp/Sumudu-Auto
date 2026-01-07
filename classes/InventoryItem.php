@@ -151,6 +151,34 @@ class InventoryItem
     }
 
     /**
+     * Search items by name or code
+     */
+    public function search($term, $companyId, $branchId = null)
+    {
+        $term = "%$term%";
+        $query = "SELECT i.id, i.company_id, i.branch_id, i.item_code, i.item_name, i.description, 
+                  i.category_id, i.unit_of_measure, i.current_stock, i.reorder_level, 
+                  i.max_stock_level, i.unit_cost, i.unit_price, i.is_active,
+                  c.category_name, b.branch_name
+                  FROM inventory_items i
+                  LEFT JOIN inventory_categories c ON i.category_id = c.id
+                  LEFT JOIN branches b ON i.branch_id = b.id
+                  WHERE i.company_id = ? AND i.is_active = 1 AND (i.item_name LIKE ? OR i.item_code LIKE ?)";
+        
+        $params = [$companyId, $term, $term];
+        
+        if ($branchId) {
+             // Optional: if dealing with multi-branch stock, filter by branch
+             // For now assume shared access or specific requirement
+        }
+        
+        $query .= " ORDER BY i.item_name ASC LIMIT 20";
+        
+        $stmt = $this->db->prepareSelect($query, $params);
+        return $stmt ? $stmt->fetchAll() : [];
+    }
+
+    /**
      * Get all items for a company, optionally filtered by branch.
      */
     public function all($companyId = null, $branchId = null)

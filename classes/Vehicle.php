@@ -145,7 +145,7 @@ class Vehicle
     public function all($companyId = null)
     {
         $query = "SELECT v.id, v.company_id, v.customer_id, v.registration_number, v.make, v.model, v.year, v.color, 
-                         v.current_mileage, v.last_service_date, v.last_oil_change_date, v.created_at, c.name as customer_name 
+                         v.current_mileage, v.last_service_date, v.last_oil_change_date, v.created_at, c.name as customer_name, c.phone as customer_phone 
                   FROM vehicles v 
                   JOIN customers c ON v.customer_id = c.id";
         

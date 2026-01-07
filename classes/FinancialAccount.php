@@ -17,6 +17,15 @@ class FinancialAccount {
     // ============================================================
 
     public function createAccount($data) {
+        // If setting as default, first clear default from other accounts of same type
+        if (!empty($data['is_default'])) {
+            $this->db->prepareExecute(
+                "UPDATE financial_accounts SET is_default = 0 
+                 WHERE company_id = ? AND account_type = ?",
+                [$this->company_id, $data['account_type']]
+            );
+        }
+        
         $query = "INSERT INTO financial_accounts 
                   (company_id, branch_id, account_type, account_name, bank_name, account_number, currency, opening_balance, current_balance, is_active, is_default) 
                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
@@ -31,8 +40,8 @@ class FinancialAccount {
             $data['currency'] ?? 'LKR',
             $data['opening_balance'] ?? 0.00,
             $data['opening_balance'] ?? 0.00, // Current balance starts same as opening
-            $data['is_active'] ?? 1,
-            $data['is_default'] ?? 0
+            isset($data['is_active']) ? 1 : 1,
+            isset($data['is_default']) ? 1 : 0
         ];
 
         if ($this->db->prepareExecute($query, $params)) {
@@ -47,15 +56,25 @@ class FinancialAccount {
         // Get old data for audit
         $old = $this->getAccountById($id);
         
+        // If setting as default, first clear default from other accounts of same type
+        if (!empty($data['is_default'])) {
+            $this->db->prepareExecute(
+                "UPDATE financial_accounts SET is_default = 0 
+                 WHERE company_id = ? AND account_type = ? AND id != ?",
+                [$this->company_id, $old['account_type'], $id]
+            );
+        }
+        
         $query = "UPDATE financial_accounts SET 
-                  account_name = ?, bank_name = ?, account_number = ?, is_active = ? 
+                  account_name = ?, bank_name = ?, account_number = ?, is_active = ?, is_default = ? 
                   WHERE id = ? AND company_id = ?";
         
         $success = $this->db->prepareExecute($query, [
             $data['account_name'],
             $data['bank_name'] ?? null,
             $data['account_number'] ?? null,
-            $data['is_active'],
+            isset($data['is_active']) ? 1 : 0,
+            isset($data['is_default']) ? 1 : 0,
             $id,
             $this->company_id
         ]);

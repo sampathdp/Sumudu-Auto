@@ -47,6 +47,58 @@ try {
             }
             break;
 
+        case 'create_from_invoice':
+            // Create service record from invoice - simplified version without package requirement
+            if (empty($_POST['vehicle_id'])) {
+                echo json_encode(['status' => 'error', 'message' => 'Vehicle ID is required']);
+                exit;
+            }
+
+            $db = new Database();
+            
+            // Generate job number
+            $prefix = "JOB";
+            $date = date('Ymd');
+            $query = "SELECT job_number FROM services WHERE company_id = ? AND job_number LIKE ? ORDER BY id DESC LIMIT 1";
+            $stmt = $db->prepareSelect($query, [$sessionCompanyId, $prefix . $date . '%']);
+            $sequence = 1;
+            if ($stmt) {
+                $row = $stmt->fetch();
+                if ($row) {
+                    $sequence = (int)substr($row['job_number'], strlen($prefix . $date)) + 1;
+                }
+            }
+            $jobNumber = $prefix . $date . str_pad($sequence, 4, '0', STR_PAD_LEFT);
+
+            // Insert service record
+            $insertQuery = "INSERT INTO services (
+                company_id, branch_id, job_number, customer_id, vehicle_id, 
+                status, progress_percentage, total_amount, payment_status, notes, start_time
+            ) VALUES (?, ?, ?, ?, ?, 'completed', 100, ?, 'paid', ?, NOW())";
+
+            $success = $db->prepareExecute($insertQuery, [
+                $sessionCompanyId,
+                $sessionBranchId,
+                $jobNumber,
+                !empty($_POST['customer_id']) ? (int)$_POST['customer_id'] : null,
+                (int)$_POST['vehicle_id'],
+                (float)($_POST['total_amount'] ?? 0),
+                $_POST['notes'] ?? 'Created from Invoice #' . ($_POST['invoice_id'] ?? '')
+            ]);
+
+            if ($success) {
+                $serviceId = $db->getLastInsertId();
+                echo json_encode([
+                    'status' => 'success',
+                    'message' => 'Service record created',
+                    'service_id' => $serviceId,
+                    'job_number' => $jobNumber
+                ]);
+            } else {
+                echo json_encode(['status' => 'error', 'message' => 'Failed to create service record']);
+            }
+            break;
+
         case 'create_multi':
             // Multi-package job creation
             if (empty($_POST['customer_id']) || empty($_POST['vehicle_id']) || empty($_POST['package_ids'])) {
@@ -588,10 +640,12 @@ try {
             // Create service item
             $totalPrice = $quantity * $unitPrice;
             $serviceItem = new ServiceItem();
+            $serviceItem->company_id = $sessionCompanyId;
             $serviceItem->service_id = $serviceId;
             $serviceItem->item_type = 'inventory';
             $serviceItem->related_id = $inventoryItemId;
-            $serviceItem->description = $invItem['item_name'];
+            $serviceItem->item_name = $invItem['item_name'];
+            $serviceItem->description = $invItem['description'] ?? $invItem['item_name'];
             $serviceItem->quantity = $quantity;
             $serviceItem->unit_price = $unitPrice;
             $serviceItem->tax_amount = 0;
@@ -605,7 +659,7 @@ try {
                 echo json_encode(['status' => 'success', 'message' => 'Item added successfully']);
             } else {
                 // Revert stock if failed
-                $db->prepareExecute("UPDATE inventory_items SET quantity = quantity + ? WHERE id = ?", [$quantity, $inventoryItemId]);
+                $db->prepareExecute("UPDATE inventory_items SET current_stock = current_stock + ? WHERE id = ?", [$quantity, $inventoryItemId]);
                 echo json_encode(['status' => 'error', 'message' => 'Failed to add item']);
             }
             break;
@@ -633,7 +687,7 @@ try {
             // If it's an inventory type, restore the stock
             if ($srvItem['item_type'] === 'inventory' && $srvItem['related_id']) {
                 $db->prepareExecute(
-                    "UPDATE inventory_items SET quantity = quantity + ? WHERE id = ?", 
+                    "UPDATE inventory_items SET current_stock = current_stock + ? WHERE id = ?", 
                     [$srvItem['quantity'], $srvItem['related_id']]
                 );
             }

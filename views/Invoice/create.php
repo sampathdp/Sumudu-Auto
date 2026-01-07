@@ -289,12 +289,25 @@ $editInvoiceId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
                             <div class="form-card-body">
                                 <div class="row g-3">
                                     <div class="col-md-6 col-lg-4">
+                                        <label class="form-label">Select Vehicle</label>
+                                        <div class="input-group">
+                                            <input type="hidden" id="vehicle_id" value="">
+                                            <input type="text" class="form-control" id="vehicle_display" placeholder="Type reg no or browse..." style="cursor: text;">
+                                            <button class="btn btn-outline-secondary" type="button" id="browseVehicleBtn" title="Browse vehicles">
+                                                <i class="fas fa-search"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 col-lg-4">
                                         <label class="form-label">Customer Name</label>
                                         <div class="input-group">
                                             <input type="hidden" id="customer_id" value="0">
-                                            <input type="text" class="form-control" id="customer_name" placeholder="Enter or select customer">
+                                            <input type="text" class="form-control" id="customer_name" placeholder="Type name or browse..." style="cursor: text;">
                                             <button class="btn btn-outline-secondary" type="button" id="browseCustomerBtn" title="Browse customers">
                                                 <i class="fas fa-search"></i>
+                                            </button>
+                                            <button class="btn btn-outline-success" type="button" id="quickAddBtn" title="Quick Add Customer & Vehicle">
+                                                <i class="fas fa-plus"></i>
                                             </button>
                                         </div>
                                     </div>
@@ -305,6 +318,39 @@ $editInvoiceId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
                                     <div class="col-md-6 col-lg-4">
                                         <label class="form-label">Invoice Date</label>
                                         <input type="date" class="form-control" id="invoice_date">
+                                    </div>
+                                    <div class="col-md-6 col-lg-8" id="lastServiceInfoCol" style="display:none;">
+                                        <label class="form-label"><i class="fas fa-history text-info me-1"></i>Last Service Record</label>
+                                        <div class="d-flex flex-wrap gap-2" id="lastServiceInfo">
+                                            <small class="text-muted">Select a vehicle to see history</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Service History Card (shown when vehicle selected) -->
+                        <div class="form-card" id="serviceHistoryCard" style="display:none;">
+                            <div class="form-card-header bg-info bg-opacity-10">
+                                <h5 class="text-dark"><i class="fas fa-history me-2"></i>Service Record</h5>
+                            </div>
+                            <div class="form-card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-3">
+                                        <label class="form-label">Current Mileage</label>
+                                        <input type="number" class="form-control" id="current_mileage" placeholder="e.g., 85000">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Next Service Mileage</label>
+                                        <input type="number" class="form-control" id="next_service_mileage" placeholder="e.g., 90000">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Next Service Date</label>
+                                        <input type="date" class="form-control" id="next_service_date">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Service Notes</label>
+                                        <input type="text" class="form-control" id="service_notes" placeholder="Optional notes">
                                     </div>
                                 </div>
                             </div>
@@ -392,7 +438,7 @@ $editInvoiceId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
                                                 <label>Subtotal</label>
                                                 <span class="value" id="subtotal">Rs. 0.00</span>
                                             </div>
-                                            <div class="summary-row align-items-center">
+                                            <div class="summary-row align-items-center d-none">
                                                 <label>Tax</label>
                                                 <input type="number" step="0.01" class="form-control form-control-sm" style="width: 120px;" id="tax_amount" value="0">
                                             </div>
@@ -427,6 +473,8 @@ $editInvoiceId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
     <?php include '../../includes/main-js.php'; ?>
     <script src="<?php echo BASE_URL; ?>Ajax/js/item_selector_modal.js"></script>
     <script src="<?php echo BASE_URL; ?>Ajax/js/customer_selector_modal.js"></script>
+    <script src="<?php echo BASE_URL; ?>Ajax/js/vehicle_selector_modal.js"></script>
+    <script src="<?php echo BASE_URL; ?>Ajax/js/autocomplete_helper.js"></script>
     <script>
     let itemCounter = 0;
     let currentItemRow = null;
@@ -464,11 +512,198 @@ $editInvoiceId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
                 const select = $('#account_id');
                 res.data.forEach(acc => {
                     select.append(`<option value="${acc.id}">${acc.account_name} (${acc.account_type})</option>`);
+                    if (!editInvoiceId && acc.is_default == 1) {
+                        select.val(acc.id);
+                    }
                 });
             }
         });
 
+        // Load Vehicles for Autocomplete
+        let vehiclesData = [];
+        $.get('../../Ajax/php/vehicle.php?action=list_with_customer', function(res) {
+            if (res.status === 'success') {
+                vehiclesData = res.data;
+            }
+        });
 
+
+
+        // Initialize Vehicle Selector Modal
+        const vehicleSelector = new VehicleSelectorModal({
+            onSelect: function(vehicle) {
+                $('#vehicle_id').val(vehicle.id);
+                $('#vehicle_display').val(vehicle.registration_number + ' - ' + vehicle.make + ' ' + vehicle.model);
+                
+                // Auto-fill customer details
+                $('#customer_id').val(vehicle.customer_id);
+                $('#customer_name').val(vehicle.customer_name);
+                $('#customer_mobile').val(vehicle.customer_phone || '');
+                showServiceHistoryCard(vehicle.id);
+            }
+        });
+
+        $('#browseVehicleBtn').click(function() {
+            vehicleSelector.show();
+        });
+
+        // Autocomplete for Vehicle
+        new Autocomplete({
+            inputSelector: '#vehicle_display',
+            minChars: 1,
+            fetchData: function(term, callback) {
+                // Filter locally from loaded vehiclesData
+                term = term.toLowerCase();
+                const matches = vehiclesData.filter(v => 
+                    v.registration_number.toLowerCase().includes(term) || 
+                    v.make.toLowerCase().includes(term) || 
+                    v.model.toLowerCase().includes(term) ||
+                    (v.customer_name && v.customer_name.toLowerCase().includes(term))
+                ).slice(0, 10); // Limit results
+                callback(matches);
+            },
+            renderItem: function(v) {
+                return `
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-search text-secondary me-3"></i>
+                        <div>
+                            <div class="fw-bold text-white">${v.registration_number} <span class="text-secondary small ms-1">${v.make} ${v.model}</span></div>
+                            <small class="text-muted" style="color: #9ca3af !important;">Owner: ${v.customer_name}</small>
+                        </div>
+                    </div>
+                `;
+            },
+            onSelect: function(vehicle) {
+                $('#vehicle_id').val(vehicle.id);
+                $('#vehicle_display').val(vehicle.registration_number + ' - ' + vehicle.make + ' ' + vehicle.model);
+                $('#customer_id').val(vehicle.customer_id);
+                $('#customer_name').val(vehicle.customer_name);
+                $('#customer_mobile').val(vehicle.customer_phone || '');
+                showServiceHistoryCard(vehicle.id);
+            }
+        });
+
+        // Helper to fetch and select vehicle for a customer
+        function fetchAndSelectCustomerVehicle(customerId) {
+            $.get('../../Ajax/php/vehicle.php', { action: 'get_by_customer', customer_id: customerId }, function(res) {
+                if (res.status === 'success' && res.data && res.data.length > 0) {
+                    // Select the first vehicle (most recently created/updated usually)
+                    const v = res.data[0];
+                    $('#vehicle_id').val(v.id);
+                    $('#vehicle_display').val(v.registration_number + ' - ' + v.make + ' ' + v.model);
+                    showServiceHistoryCard(v.id);
+                    
+                    if (res.data.length > 1) {
+                        // Optional: Notify user if multiple vehicles exist
+                        Swal.fire({
+                            toast: true,
+                            position: 'top-end',
+                            icon: 'info',
+                            title: 'Customer has multiple vehicles. Selected newest: ' + v.registration_number,
+                            showConfirmButton: false,
+                            timer: 3000
+                        });
+                    }
+                } else {
+                    // Clear vehicle if none found (safety)
+                    $('#vehicle_id').val('');
+                    $('#vehicle_display').val('');
+                    $('#serviceHistoryCard').slideUp();
+                }
+            });
+        }
+
+        // Helper to show service history card and load latest data
+        function showServiceHistoryCard(vehicleId) {
+            if (!vehicleId) {
+                $('#serviceHistoryCard').slideUp();
+                return;
+            }
+            
+            $('#serviceHistoryCard').slideDown();
+            $('#lastServiceInfoCol').show();
+            
+            // Clear previous values
+            $('#current_mileage').val('');
+            $('#next_service_mileage').val('');
+            $('#next_service_date').val('');
+            $('#service_notes').val('');
+            $('#lastServiceInfo').html('<small class="text-muted">Loading...</small>');
+            
+            // Load latest service to pre-fill (optional - gives context)
+            $.get('../../Ajax/php/vehicle.php', { action: 'get_latest_service', vehicle_id: vehicleId }, function(res) {
+                if (res.status === 'success' && res.data) {
+                    const d = res.data;
+                    let html = '';
+                    
+                    if (d.service_date) {
+                        html += `<div class="d-inline-flex align-items-center px-3 py-2 rounded-pill me-2 mb-1" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; font-size: 0.85rem;">
+                            <i class="fas fa-calendar-check me-2"></i>
+                            <span><strong>Last:</strong> ${d.service_date}</span>
+                        </div>`;
+                    }
+                    if (d.current_mileage) {
+                        html += `<div class="d-inline-flex align-items-center px-3 py-2 rounded-pill me-2 mb-1" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; font-size: 0.85rem;">
+                            <i class="fas fa-tachometer-alt me-2"></i>
+                            <span><strong>${Number(d.current_mileage).toLocaleString()}</strong> km</span>
+                        </div>`;
+                    }
+                    if (d.next_service_mileage) {
+                        html += `<div class="d-inline-flex align-items-center px-3 py-2 rounded-pill me-2 mb-1" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #1f2937; font-size: 0.85rem;">
+                            <i class="fas fa-arrow-right me-2"></i>
+                            <span><strong>Next:</strong> ${Number(d.next_service_mileage).toLocaleString()} km</span>
+                        </div>`;
+                        $('#current_mileage').attr('placeholder', 'Last next: ' + d.next_service_mileage);
+                    }
+                    if (d.next_service_date) {
+                        html += `<div class="d-inline-flex align-items-center px-3 py-2 rounded-pill mb-1" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); color: white; font-size: 0.85rem;">
+                            <i class="fas fa-calendar me-2"></i>
+                            <span><strong>Next:</strong> ${d.next_service_date}</span>
+                        </div>`;
+                    }
+                    
+                    $('#lastServiceInfo').html(html || '<span class="text-muted small">No data available</span>');
+                } else {
+                    $('#lastServiceInfo').html('<span class="text-muted small"><i class="fas fa-info-circle me-1"></i>No previous service records</span>');
+                }
+            });
+        }
+
+        // Autocomplete for Customer
+        new Autocomplete({
+            inputSelector: '#customer_name',
+            minChars: 1,
+            fetchData: function(term, callback) {
+                // Use absolute path for reliability
+                $.get('<?php echo BASE_URL; ?>Ajax/php/customer.php', { action: 'search', term: term }, function(res) {
+                    if (res.status === 'success') {
+                        callback(res.data);
+                    } else {
+                        callback([]);
+                    }
+                }).fail(function() {
+                    console.error("Customer search failed");
+                    callback([]);
+                });
+            },
+            renderItem: function(c) {
+                return `
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-search text-secondary me-3"></i>
+                        <div>
+                            <div class="fw-bold text-white">${c.name}</div>
+                            <small class="text-muted" style="color: #9ca3af !important;">${c.phone}</small>
+                        </div>
+                    </div>
+                `;
+            },
+            onSelect: function(customer) {
+                $('#customer_id').val(customer.id);
+                $('#customer_name').val(customer.name);
+                $('#customer_mobile').val(customer.phone || '');
+                fetchAndSelectCustomerVehicle(customer.id);
+            }
+        });
 
         // Initialize Customer Selector Modal
         const customerSelector = new CustomerSelectorModal({
@@ -476,6 +711,7 @@ $editInvoiceId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
                 $('#customer_id').val(customer.id);
                 $('#customer_name').val(customer.name);
                 $('#customer_mobile').val(customer.phone || '');
+                fetchAndSelectCustomerVehicle(customer.id);
             }
         });
 
@@ -501,6 +737,104 @@ $editInvoiceId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
                     currentItemRow.find('.item-qty').trigger('input');
                 }
             }
+        });
+
+        // Quick Add Button Handler
+        $('#quickAddBtn').click(function() {
+            $('#addBothModal').modal('show');
+        });
+
+        // Quick Add Form Submission
+        $('#addBothForm').on('submit', function(e) {
+            e.preventDefault();
+            if (!this.checkValidity()) {
+                $(this).addClass('was-validated');
+                return;
+            }
+
+            const btn = $('#saveBothBtn');
+            const originalBtnText = btn.html();
+            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i> Saving...');
+
+            // 1. Create Customer
+            const customerData = {
+                action: 'create',
+                name: $('#both_name').val(),
+                phone: $('#both_phone').val(),
+                email: $('#both_email').val(),
+                address: '' // Optional
+            };
+
+            $.post('<?php echo BASE_URL; ?>Ajax/php/customer.php', customerData, function(cRes) {
+                if (cRes.status === 'success') {
+                    const customerId = cRes.id;
+                    const customerName = customerData.name;
+                    const customerPhone = customerData.phone;
+
+                    // 2. Create Vehicle
+                    const vehicleData = {
+                        action: 'create',
+                        customer_id: customerId,
+                        registration_number: $('#both_registration').val(),
+                        make: $('#both_make').val(),
+                        model: $('#both_model').val(),
+                        year: $('#both_year').val(),
+                        current_mileage: $('#both_mileage').val(),
+                        color: '' // Optional
+                    };
+
+                    $.post('<?php echo BASE_URL; ?>Ajax/php/vehicle.php', vehicleData, function(vRes) {
+                        if (vRes.status === 'success') {
+                            const vehicleId = vRes.id;
+                            const regNo = vehicleData.registration_number;
+                            const make = vehicleData.make;
+                            const model = vehicleData.model;
+
+                            // Success! Fill the invoice inputs
+                            $('#customer_id').val(customerId);
+                            $('#customer_name').val(customerName);
+                            $('#customer_mobile').val(customerPhone);
+                            
+                            $('#vehicle_id').val(vehicleId);
+                            $('#vehicle_display').val(regNo + ' - ' + make + ' ' + model);
+
+                            // Close modal and reset
+                            $('#addBothModal').modal('hide');
+                            $('#addBothForm')[0].reset();
+                            $('#addBothForm').removeClass('was-validated');
+                            
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Success',
+                                text: 'Customer and Vehicle added successfully!',
+                                timer: 2000,
+                                showConfirmButton: false
+                            });
+
+                            // Refresh local vehicle list for autocomplete
+                             $.get('../../Ajax/php/vehicle.php?action=list_with_customer', function(res) {
+                                if (res.status === 'success') {
+                                    vehiclesData = res.data;
+                                }
+                            });
+
+                        } else {
+                            Swal.fire('Error', vRes.message || 'Failed to create vehicle', 'error');
+                        }
+                    }).fail(function() {
+                        Swal.fire('Error', 'Failed to save vehicle details', 'error');
+                    }).always(function() {
+                        btn.prop('disabled', false).html(originalBtnText);
+                    });
+
+                } else {
+                    Swal.fire('Error', cRes.message || 'Failed to create customer', 'error');
+                    btn.prop('disabled', false).html(originalBtnText);
+                }
+            }).fail(function() {
+                Swal.fire('Error', 'Failed to save customer details', 'error');
+                btn.prop('disabled', false).html(originalBtnText);
+            });
         });
 
         // Add item row function
@@ -529,7 +863,7 @@ $editInvoiceId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
                             <input type="hidden" class="item-id" value="${data ? (data.item_id || '') : ''}">
                             
                             <div class="input-group input-group-sm item-browse-group" style="display: ${(!data || data.item_type === 'inventory') ? 'flex' : 'none'};">
-                                <input type="text" class="form-control item-display" placeholder="Click to browse..." readonly style="cursor: pointer;" value="${data ? (data.item_name || data.description || '') : ''}">
+                                <input type="text" class="form-control item-display" placeholder="Type to search or browse..." value="${data ? (data.item_name || data.description || '') : ''}">
                                 <button type="button" class="btn btn-outline-secondary browse-item-btn">
                                     <i class="fas fa-search"></i>
                                 </button>
@@ -564,9 +898,78 @@ $editInvoiceId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
                         </div>
                     </div>
                 </div>`;
-            $('#itemsContainer').append(row);
+
+            const $row = $(row);
+            $('#itemsContainer').append($row);
+            
+            // Initialize Autocomplete for this row
+            if (!data || data.item_type === 'inventory' || !data.item_type) {
+                initializeItemAutocomplete($row);
+            }
+            
             itemCounter++;
             calculateTotals();
+        }
+
+        // Helper to initialize autocomplete on item row
+        function initializeItemAutocomplete(row) {
+            const input = row.find('.item-display');
+            
+            new Autocomplete({
+                inputSelector: input,
+                minChars: 1,
+                fetchData: function(term, callback) {
+                    // Only search if type is inventory
+                    if (row.find('.item-type').val() !== 'inventory') {
+                        callback([]);
+                        return;
+                    }
+
+                    $.get('../../Ajax/php/inventory_item.php', { 
+                        action: 'search', 
+                        term: term 
+                    }, function(res) {
+                        if (res.status === 'success') {
+                            callback(res.data);
+                        } else {
+                            callback([]);
+                        }
+                    });
+                },
+                renderItem: function(item) {
+                    return `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>${item.item_name}</strong> <span class="text-secondary small">(${item.item_code})</span>
+                                <br>
+                                <span class="text-white-50 small">Stock: ${item.current_stock} | Price: ${item.unit_price}</span>
+                            </div>
+                        </div>
+                    `;
+                },
+                onSelect: function(item) {
+                    row.find('.item-id').val(item.id);
+                    row.find('.item-display').val(item.item_name);
+                    row.find('.item-price').val(item.unit_price);
+                    row.find('.item-available-stock').val(item.current_stock);
+                    
+                    // Update stock info display
+                    row.find('.stock-info').html(`<small class="text-muted">Available: ${item.current_stock}</small>`);
+                    
+                    // Recalculate totals
+                    const qty = parseFloat(row.find('.item-qty').val()) || 1;
+                    const total = qty * parseFloat(item.unit_price);
+                    row.find('.item-total').val(total.toFixed(2));
+                    calculateTotals();
+                    
+                    // Validate stock
+                    if (qty > item.current_stock) {
+                         row.find('.item-qty').addClass('is-invalid');
+                    } else {
+                         row.find('.item-qty').removeClass('is-invalid');
+                    }
+                }
+            });
         }
 
         $('#addItemBtn').click(function() {
@@ -631,7 +1034,7 @@ $editInvoiceId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
         });
 
         // Open item selector
-        $(document).on('click', '.browse-item-btn, .item-display', function() {
+        $(document).on('click', '.browse-item-btn', function() {
             currentItemRow = $(this).closest('.item-row');
             invoiceItemSelector.show();
         });
@@ -795,6 +1198,39 @@ $editInvoiceId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
                 $('#saveInvoiceBtn').prop('disabled', false).html('<i class="fas fa-save me-1"></i>' + (editInvoiceId ? 'Update' : 'Create') + ' Invoice');
 
                 if(res.status === 'success') {
+                    
+                    // Save Service History if vehicle is selected
+                    const vehicleId = $('#vehicle_id').val();
+                    const currentMileage = $('#current_mileage').val();
+                    const nextServiceMileage = $('#next_service_mileage').val();
+                    const nextServiceDate = $('#next_service_date').val();
+                    const serviceNotes = $('#service_notes').val();
+                    
+                    if (vehicleId && (currentMileage || nextServiceMileage || nextServiceDate)) {
+                        $.post('../../Ajax/php/vehicle.php', {
+                            action: 'save_service_history',
+                            vehicle_id: vehicleId,
+                            invoice_id: res.invoice_id || editInvoiceId,
+                            service_date: $('#invoice_date').val(),
+                            current_mileage: currentMileage,
+                            next_service_mileage: nextServiceMileage,
+                            next_service_date: nextServiceDate,
+                            notes: serviceNotes
+                        });
+                    }
+
+                    // Create Service Record if vehicle is selected (for new invoices)
+                    if (!editInvoiceId && vehicleId) {
+                        $.post('../../Ajax/php/service.php', {
+                            action: 'create_from_invoice',
+                            vehicle_id: vehicleId,
+                            customer_id: $('#customer_id').val(),
+                            invoice_id: res.invoice_id,
+                            total_amount: total,
+                            notes: 'Invoice #' + (res.invoice_number || res.invoice_id)
+                        });
+                    }
+
                     if (!editInvoiceId && res.invoice_id) {
                         window.open('print.php?id=' + res.invoice_id, '_blank');
                     }
@@ -815,5 +1251,68 @@ $editInvoiceId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
         });
     });
     </script>
+    <!-- Quick Add Customer & Vehicle Modal -->
+    <div class="modal fade" id="addBothModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <form id="addBothForm" class="needs-validation" novalidate>
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title"><i class="fas fa-bolt me-2"></i>Quick Add: Customer & Vehicle</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <!-- Customer Section -->
+                            <div class="col-md-6">
+                                <h6 class="section-title customer text-success border-bottom pb-2 mb-3"><i class="fas fa-user me-2"></i>Customer Details</h6>
+                                <div class="mb-3">
+                                    <label for="both_name" class="form-label">Full Name <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="both_name" name="name" required placeholder="Enter customer name">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="both_phone" class="form-label">Phone <span class="text-danger">*</span></label>
+                                    <input type="tel" class="form-control" id="both_phone" name="phone" required placeholder="Enter phone number">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="both_email" class="form-label">Email</label>
+                                    <input type="email" class="form-control" id="both_email" name="email" placeholder="Enter email (optional)">
+                                </div>
+                            </div>
+                            <!-- Vehicle Section -->
+                            <div class="col-md-6">
+                                <h6 class="section-title vehicle text-primary border-bottom pb-2 mb-3"><i class="fas fa-car me-2"></i>Vehicle Details</h6>
+                                <div class="mb-3">
+                                    <label for="both_make" class="form-label">Make <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="both_make" name="make" required placeholder="e.g., Toyota">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="both_model" class="form-label">Model <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="both_model" name="model" required placeholder="e.g., Corolla">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="both_registration" class="form-label">Registration <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="both_registration" name="registration_number" required placeholder="e.g., ABC-1234">
+                                </div>
+                                <div class="row">
+                                    <div class="col-6 mb-3">
+                                        <label for="both_year" class="form-label">Year</label>
+                                        <input type="number" class="form-control" id="both_year" name="year" min="1900" max="2100" placeholder="Year">
+                                    </div>
+                                    <div class="col-6 mb-3">
+                                        <label for="both_mileage" class="form-label">Mileage (km)</label>
+                                        <input type="number" class="form-control" id="both_mileage" name="current_mileage" min="0" placeholder="Mileage">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success" id="saveBothBtn"><i class="fas fa-save me-1"></i>Save Both</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

@@ -112,20 +112,40 @@ $vehicleStats = Vehicle::getStats($companyId);
                     <!-- Tabs for Customers and Vehicles -->
                     <ul class="nav nav-tabs mb-3" id="dataTab" role="tablist">
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="customers-tab" data-bs-toggle="tab" data-bs-target="#customers-panel" type="button" role="tab">
-                                <i class="fas fa-users me-2"></i>Customers
+                            <button class="nav-link active" id="vehicles-tab" data-bs-toggle="tab" data-bs-target="#vehicles-panel" type="button" role="tab">
+                                <i class="fas fa-car me-2"></i>Vehicles
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="vehicles-tab" data-bs-toggle="tab" data-bs-target="#vehicles-panel" type="button" role="tab">
-                                <i class="fas fa-car me-2"></i>Vehicles
+                            <button class="nav-link" id="customers-tab" data-bs-toggle="tab" data-bs-target="#customers-panel" type="button" role="tab">
+                                <i class="fas fa-users me-2"></i>Customers
                             </button>
                         </li>
                     </ul>
 
                     <div class="tab-content" id="dataTabContent">
+                        <!-- Vehicles Tab -->
+                        <div class="tab-pane fade show active" id="vehicles-panel" role="tabpanel">
+                            <div class="data-card">
+                                <div class="data-card-header">
+                                    <h5><i class="fas fa-list me-2"></i>Vehicles List</h5>
+                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#vehicleModal">
+                                        <i class="fas fa-car me-1"></i>Add Vehicle Only
+                                    </button>
+                                </div>
+                                <div class="data-card-body">
+                                    <div class="table-responsive">
+                                        <table id="vehiclesTable" class="table table-hover" style="width:100%">
+                                            <thead><tr><th>Vehicle No</th><th>Vehicle</th><th>Customer Name</th><th>Customer No</th><th>Cur. Mileage</th><th>Last Service</th><th class="text-end">Actions</th></tr></thead>
+                                            <tbody></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Customers Tab -->
-                        <div class="tab-pane fade show active" id="customers-panel" role="tabpanel">
+                        <div class="tab-pane fade" id="customers-panel" role="tabpanel">
                             <div class="data-card">
                                 <div class="data-card-header">
                                     <h5><i class="fas fa-list me-2"></i>Customers List</h5>
@@ -137,26 +157,6 @@ $vehicleStats = Vehicle::getStats($companyId);
                                     <div class="table-responsive">
                                         <table id="customersTable" class="table table-hover" style="width:100%">
                                             <thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Email</th><th>Vehicles</th><th class="text-end">Actions</th></tr></thead>
-                                            <tbody></tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Vehicles Tab -->
-                        <div class="tab-pane fade" id="vehicles-panel" role="tabpanel">
-                            <div class="data-card">
-                                <div class="data-card-header">
-                                    <h5><i class="fas fa-list me-2"></i>Vehicles List</h5>
-                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#vehicleModal">
-                                        <i class="fas fa-car me-1"></i>Add Vehicle Only
-                                    </button>
-                                </div>
-                                <div class="data-card-body">
-                                    <div class="table-responsive">
-                                        <table id="vehiclesTable" class="table table-hover" style="width:100%">
-                                            <thead><tr><th>Customer</th><th>Registration</th><th>Make</th><th>Model</th><th>Year</th><th class="text-end">Actions</th></tr></thead>
                                             <tbody></tbody>
                                         </table>
                                     </div>
