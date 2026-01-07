@@ -158,6 +158,21 @@ try {
             }
             break;
 
+        case 'list_with_customer':
+            // Get all vehicles with full customer details (name, phone, email)
+            $db = new Database();
+            $query = "SELECT v.id, v.company_id, v.customer_id, v.registration_number, v.make, v.model, v.year, v.color, 
+                             v.current_mileage, v.last_service_date, v.last_oil_change_date, v.created_at,
+                             c.name as customer_name, c.phone as customer_phone, c.email as customer_email, c.address as customer_address
+                      FROM vehicles v 
+                      JOIN customers c ON v.customer_id = c.id
+                      WHERE v.company_id = ?
+                      ORDER BY v.created_at DESC";
+            $stmt = $db->prepareSelect($query, [$sessionCompanyId]);
+            $vehicles = $stmt ? $stmt->fetchAll() : [];
+            $response = ['status' => 'success', 'data' => $vehicles];
+            break;
+
         case 'list':
         default:
             $vehicle = new Vehicle();

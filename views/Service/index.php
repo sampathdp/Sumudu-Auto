@@ -204,6 +204,24 @@ requirePagePermission('View');
             font-weight: 500;
         }
 
+        /* Button row for customer actions */
+        .customer-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        @media (min-width: 768px) {
+            .customer-actions {
+                flex-wrap: nowrap;
+            }
+        }
+
+        .customer-actions .btn {
+            flex: 1 1 0;
+            white-space: nowrap;
+        }
+
         @media (max-width: 991.98px) {
             .content {
                 padding: 1rem;
@@ -280,7 +298,7 @@ requirePagePermission('View');
                                     </div>
                                     <div class="card-body">
                                         <div class="row">
-                                            <div class="col-md-6 mb-3">
+                                            <div class="col-md-5 mb-3">
                                                 <label for="customer_id" class="form-label">Select Customer <span class="text-danger">*</span></label>
                                                 <select class="form-select" id="customer_id" name="customer_id" required>
                                                     <option value="">Choose a customer...</option>
@@ -289,12 +307,15 @@ requirePagePermission('View');
                                             </div>
                                             <div class="col-md-6 mb-3">
                                                 <label class="form-label">&nbsp;</label>
-                                                <div class="d-flex gap-2">
-                                                    <button type="button" class="btn btn-outline-primary flex-fill" data-bs-toggle="modal" data-bs-target="#addCustomerModal">
+                                                <div class="customer-actions">
+                                                    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addCustomerModal">
                                                         <i class="fas fa-user-plus"></i> New Customer
                                                     </button>
-                                                    <button type="button" class="btn btn-success flex-fill" data-bs-toggle="modal" data-bs-target="#quickAddBothModal">
+                                                    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#quickAddBothModal">
                                                         <i class="fas fa-bolt"></i> Quick Add Both
+                                                    </button>
+                                                    <button type="button" class="btn btn-info text-white" data-bs-toggle="modal" data-bs-target="#selectVehicleModal">
+                                                        <i class="fas fa-search"></i> Select Vehicle
                                                     </button>
                                                 </div>
                                             </div>
@@ -658,6 +679,54 @@ requirePagePermission('View');
                     <button type="button" class="btn btn-success" id="saveQuickBoth">
                         <i class="fas fa-save me-1"></i> Save & Go to Packages
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Select Vehicle Modal -->
+    <div class="modal fade" id="selectVehicleModal" tabindex="-1" aria-labelledby="selectVehicleModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title" id="selectVehicleModalLabel">
+                        <i class="fas fa-search me-2"></i>Select Vehicle
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Search Box -->
+                    <div class="mb-3">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" id="vehicleSearchInput" placeholder="Search by vehicle no, model, or customer name...">
+                        </div>
+                    </div>
+                    
+                    <!-- Vehicles Table -->
+                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-hover table-bordered" id="vehicleSelectTable">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>Vehicle No</th>
+                                    <th>Vehicle Model</th>
+                                    <th>Customer Name</th>
+                                    <th>Phone No</th>
+                                    <th class="text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="vehicleSelectBody">
+                                <tr>
+                                    <td colspan="5" class="text-center py-4">
+                                        <i class="fas fa-spinner fa-spin me-2"></i>Loading vehicles...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                 </div>
             </div>
         </div>

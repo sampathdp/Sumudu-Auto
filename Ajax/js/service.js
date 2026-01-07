@@ -1277,4 +1277,109 @@ $(document).ready(function () {
       title: message,
     });
   }
+
+  // ============================================
+  // Select Vehicle Modal Handler
+  // ============================================
+  let allVehiclesWithCustomer = [];
+
+  $("#selectVehicleModal").on("show.bs.modal", function () {
+    loadVehiclesWithCustomer();
+  });
+
+  function loadVehiclesWithCustomer() {
+    const tbody = $("#vehicleSelectBody");
+    tbody.html('<tr><td colspan="5" class="text-center py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading vehicles...</td></tr>');
+
+    $.get(BASE_URL + "Ajax/php/vehicle.php", { action: "list_with_customer" }, function (response) {
+      if (response.status === "success" && response.data) {
+        allVehiclesWithCustomer = response.data;
+        renderVehicleTable(allVehiclesWithCustomer);
+      } else {
+        tbody.html('<tr><td colspan="5" class="text-center py-4 text-danger"><i class="fas fa-exclamation-circle me-2"></i>Failed to load vehicles</td></tr>');
+      }
+    }).fail(function () {
+      tbody.html('<tr><td colspan="5" class="text-center py-4 text-danger"><i class="fas fa-exclamation-circle me-2"></i>Network error</td></tr>');
+    });
+  }
+
+  function renderVehicleTable(vehicles) {
+    const tbody = $("#vehicleSelectBody");
+    if (vehicles.length === 0) {
+      tbody.html('<tr><td colspan="5" class="text-center py-4 text-muted"><i class="fas fa-info-circle me-2"></i>No vehicles found</td></tr>');
+      return;
+    }
+    let html = "";
+    vehicles.forEach((v) => {
+      html += '<tr class="vehicle-row" data-vehicle=\'' + JSON.stringify(v) + '\'>';
+      html += '<td><strong>' + (v.registration_number || "-") + '</strong></td>';
+      html += '<td>' + (v.make || "") + ' ' + (v.model || "") + '</td>';
+      html += '<td>' + (v.customer_name || "-") + '</td>';
+      html += '<td>' + (v.customer_phone || "-") + '</td>';
+      html += '<td class="text-center"><button type="button" class="btn btn-sm btn-primary select-vehicle-btn"><i class="fas fa-check me-1"></i>Select</button></td>';
+      html += '</tr>';
+    });
+    tbody.html(html);
+  }
+
+  $("#vehicleSearchInput").on("keyup", function () {
+    const term = $(this).val().toLowerCase().trim();
+    if (!term) { renderVehicleTable(allVehiclesWithCustomer); return; }
+    const filtered = allVehiclesWithCustomer.filter((v) => {
+      return (v.registration_number || "").toLowerCase().includes(term) ||
+        (v.make || "").toLowerCase().includes(term) ||
+        (v.model || "").toLowerCase().includes(term) ||
+        (v.customer_name || "").toLowerCase().includes(term) ||
+        (v.customer_phone || "").toLowerCase().includes(term);
+    });
+    renderVehicleTable(filtered);
+  });
+
+  $(document).on("click", ".select-vehicle-btn", function () {
+    const row = $(this).closest(".vehicle-row");
+    const vData = row.data("vehicle");
+    if (!vData) { showAlert("error", "Failed to get vehicle data"); return; }
+
+    bootstrap.Modal.getInstance(document.getElementById("selectVehicleModal")).hide();
+    $("#vehicleSearchInput").val("");
+
+    const customerId = vData.customer_id;
+    const vehicleId = vData.id;
+
+    // Reload customers and select
+    $.get(BASE_URL + "Ajax/php/customer.php", { action: "list" }, function (resp) {
+      if (resp.status === "success" && resp.data) {
+        const select = $("#customer_id");
+        select.empty().append('<option value="">Choose a customer...</option>');
+        resp.data.forEach((c) => {
+          select.append('<option value="' + c.id + '" data-customer=\'' + JSON.stringify(c) + '\'>' + c.name + ' - ' + c.phone + '</option>');
+        });
+        select.val(customerId).trigger("change");
+
+        // Load vehicles for customer and select
+        setTimeout(function () {
+          $.get(BASE_URL + "Ajax/php/vehicle.php", { action: "list", customer_id: customerId }, function (vResp) {
+            if (vResp.status === "success" && vResp.data) {
+              const vSelect = $("#vehicle_id");
+              vSelect.empty().append('<option value="">Choose a vehicle...</option>');
+              vResp.data.forEach((v) => {
+                vSelect.append('<option value="' + v.id + '" data-vehicle=\'' + JSON.stringify(v) + '\'>' + v.make + ' ' + v.model + ' - ' + v.registration_number + '</option>');
+              });
+              vSelect.val(vehicleId).trigger("change");
+
+              // Jump to Step 3
+              setTimeout(function () {
+                $('[data-step="1"]').removeClass("active").addClass("completed");
+                $('[data-step="2"]').removeClass("active").addClass("completed");
+                $('[data-step="3"]').addClass("active");
+                $("#step1, #step2").hide();
+                $("#step3").show().addClass("animate-fade-in");
+                showAlert("success", "Customer & Vehicle selected! Now select packages.");
+              }, 300);
+            }
+          });
+        }, 300);
+      }
+    });
+  });
 });
