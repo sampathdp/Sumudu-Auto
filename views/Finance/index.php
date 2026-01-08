@@ -54,9 +54,6 @@ requirePagePermission('View');
                             <button class="btn btn-success" onclick="openTransactionModal('income')">
                                 <i class="fas fa-plus me-1"></i> Income
                             </button>
-                            <button class="btn btn-danger" onclick="openTransactionModal('expense')">
-                                <i class="fas fa-minus me-1"></i> Expense
-                            </button>
                             <button class="btn btn-info text-white" onclick="openTransferModal()">
                                 <i class="fas fa-exchange-alt me-1"></i> Transfer
                             </button>

@@ -304,11 +304,13 @@ $pageTitle = $grnId ? "Edit GRN #$grnId" : "Create New GRN";
                             </div>
                             <div class="form-card-body">
                                 <div class="row g-3">
-                                    <div class="col-md-6 col-lg-3">
+                                    <div class="col-md-6 col-lg-3"> 
                                         <label class="form-label">Supplier <span class="text-danger">*</span></label>
-                                        <select class="form-select" id="supplier_id" required>
-                                            <option value="">-- Select Supplier --</option>
-                                        </select>
+                                        <input type="hidden" id="supplier_id" required>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="supplier_display" placeholder="Type to search..." autocomplete="off" required>
+                                            <button class="btn btn-outline-secondary" type="button" id="browseSupplierBtn"><i class="fas fa-search"></i></button>
+                                        </div>
                                     </div>
                                     <div class="col-md-6 col-lg-3">
                                         <label class="form-label">GRN Date <span class="text-danger">*</span></label>
@@ -378,7 +380,7 @@ $pageTitle = $grnId ? "Edit GRN #$grnId" : "Create New GRN";
                                                 <label>Subtotal</label>
                                                 <span class="value" id="subtotal">Rs. 0.00</span>
                                             </div>
-                                            <div class="summary-row align-items-center">
+                                            <div class="summary-row align-items-center d-none">
                                                 <label>Tax</label>
                                                 <input type="number" step="0.01" class="form-control form-control-sm" style="width: 120px;" id="tax_amount" value="0">
                                             </div>
@@ -414,6 +416,7 @@ $pageTitle = $grnId ? "Edit GRN #$grnId" : "Create New GRN";
     </div>
 
     <?php include '../../includes/main-js.php'; ?>
+    <script src="<?php echo BASE_URL; ?>Ajax/js/autocomplete_helper.js"></script>
     <script src="<?php echo BASE_URL; ?>Ajax/js/item_selector_modal.js"></script>
     <script>
     let itemCounter = 0;
@@ -427,18 +430,60 @@ $pageTitle = $grnId ? "Edit GRN #$grnId" : "Create New GRN";
             $('#grn_date').val(new Date().toISOString().split('T')[0]);
         }
 
+        let availableSuppliers = [];
+
         // Load suppliers
         $.get('../../Ajax/php/grn.php', {action: 'suppliers'}, function(res) {
             if(res.status === 'success') {
-                res.data.forEach(s => {
-                    if(s.is_active == 1) {
-                        $('#supplier_id').append(`<option value="${s.id}">${s.supplier_name}</option>`);
-                    }
-                });
-                // If editing, trigger data load after suppliers are populated (to set selected value)
-                if (editingGrnId) loadGrnData();
+                availableSuppliers = res.data.filter(s => s.is_active == 1);
+                // If editing, trigger data load after suppliers are populated
+                if (editingGrnId) {
+                    loadGrnData();
+                } else {
+                     // Init Supplier Autocomplete for Create Mode
+                     initSupplierAutocomplete();
+                }
             }
         });
+
+        function initSupplierAutocomplete() {
+            new Autocomplete({
+                inputSelector: '#supplier_display',
+                minChars: 0,
+                fetchData: function(term, callback) {
+                    term = term.toLowerCase();
+                    const matches = availableSuppliers.filter(s => 
+                        s.supplier_name.toLowerCase().includes(term) || 
+                        (s.contact_person && s.contact_person.toLowerCase().includes(term)) ||
+                        (s.phone && s.phone.includes(term))
+                    );
+                    callback(matches);
+                },
+                renderItem: function(s) {
+                    return `
+                        <div class="d-flex align-items-center">
+                            <div class="icon-circle bg-secondary bg-opacity-10 text-secondary me-2" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:50%">
+                                <i class="fas fa-truck"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold text-white">${s.supplier_name}</div>
+                                <small class="text-muted" style="color:#9ca3af!important">${s.contact_person || ''} ${s.phone ? ' - ' + s.phone : ''}</small>
+                            </div>
+                        </div>
+                    `;
+                },
+                onSelect: function(s) {
+                    $('#supplier_id').val(s.id);
+                    $('#supplier_display').val(s.supplier_name);
+                }
+            });
+            
+            // Show all on click of browse button
+            $('#browseSupplierBtn').click(function() {
+                $('#supplier_display').focus().trigger('input');
+            });
+        }
+
 
         // Load items for modal
         $.get('../../Ajax/php/grn.php', {action: 'items'}, function(res) {
@@ -454,6 +499,9 @@ $pageTitle = $grnId ? "Edit GRN #$grnId" : "Create New GRN";
                     
                     // Populate Header
                     $('#supplier_id').val(grn.supplier_id);
+                    $('#supplier_display').val(grn.supplier_name || 'Unknown Supplier'); 
+                    // Init autocomplete now that we have data
+                    initSupplierAutocomplete();
                     $('#grn_date').val(grn.grn_date);
                     $('#due_date').val(grn.due_date);
                     $('#invoice_number').val(grn.invoice_number);
@@ -483,7 +531,7 @@ $pageTitle = $grnId ? "Edit GRN #$grnId" : "Create New GRN";
                             <label class="form-label d-lg-none">Item</label>
                             <input type="hidden" class="item-id" required value="${itemData ? itemData.item_id : ''}">
                             <div class="input-group input-group-sm">
-                                <input type="text" class="form-control item-display" placeholder="Click to select item..." readonly style="cursor: pointer;" value="${itemData ? (itemData.item_code + ' - ' + itemData.item_name) : ''}">
+                                <input type="text" class="form-control item-display" placeholder="Type or click..." value="${itemData ? (itemData.item_code + ' - ' + itemData.item_name) : ''}" autocomplete="off">
                                 <button type="button" class="btn btn-outline-secondary browse-item-btn">
                                     <i class="fas fa-search"></i>
                                 </button>
@@ -508,8 +556,41 @@ $pageTitle = $grnId ? "Edit GRN #$grnId" : "Create New GRN";
                         </div>
                     </div>
                 </div>`;
-            $('#itemsContainer').append(row);
+            const $row = $(row);
+            $('#itemsContainer').append($row);
             itemCounter++;
+            
+            // Init Autocomplete for this row
+            new Autocomplete({
+                inputSelector: $row.find('.item-display'),
+                minChars: 0,
+                fetchData: function(term, callback) {
+                    term = term.toLowerCase();
+                    const matches = availableItems.filter(i => 
+                        i.item_code.toLowerCase().includes(term) || 
+                        i.item_name.toLowerCase().includes(term)
+                    ).slice(0, 15);
+                    callback(matches);
+                },
+                renderItem: function(i) {
+                     return `
+                        <div class="d-flex align-items-center">
+                            <div class="me-2">
+                                <div class="fw-bold text-white">${i.item_code}</div>
+                            </div>
+                            <div>
+                                <div class="text-white">${i.item_name}</div>
+                                <small class="text-muted" style="color:#9ca3af!important">In Stock: ${i.current_stock}</small>
+                            </div>
+                        </div>
+                    `;
+                },
+                onSelect: function(i) {
+                   $row.find('.item-id').val(i.id);
+                   $row.find('.item-display').val(i.item_code + ' - ' + i.item_name);
+                   $row.find('.item-price').val(i.unit_cost || 0).trigger('input');
+                }
+            });
         }
 
         // Initialize Item Selector Modal for GRN
@@ -528,8 +609,8 @@ $pageTitle = $grnId ? "Edit GRN #$grnId" : "Create New GRN";
             addItemRow();
         });
 
-        // Open Item Selector
-        $(document).on('click', '.browse-item-btn, .item-display', function() {
+        // Open Item Selector (Modal Button Only)
+        $(document).on('click', '.browse-item-btn', function() {
             currentItemRow = $(this).closest('.item-row');
             grnItemSelector.show();
         });

@@ -292,7 +292,7 @@ requirePagePermission('Create');
                                         <label class="form-label">Customer Name</label>
                                         <div class="input-group">
                                             <input type="hidden" id="customer_id" value="0">
-                                            <input type="text" class="form-control" id="customer_name" placeholder="Enter or select customer">
+                                            <input type="text" class="form-control" id="customer_name" placeholder="Type to search..." autocomplete="off">
                                             <button class="btn btn-outline-secondary" type="button" id="browseCustomerBtn" title="Browse customers">
                                                 <i class="fas fa-search"></i>
                                             </button>
@@ -383,6 +383,7 @@ requirePagePermission('Create');
     </div>
 
     <?php include '../../includes/main-js.php'; ?>
+    <script src="<?php echo BASE_URL; ?>Ajax/js/autocomplete_helper.js"></script>
     <script src="<?php echo BASE_URL; ?>Ajax/js/item_selector_modal.js"></script>
     <script src="<?php echo BASE_URL; ?>Ajax/js/customer_selector_modal.js"></script>
     <script>
@@ -420,7 +421,7 @@ requirePagePermission('Create');
         });
 
         $('#browseCustomerBtn').click(function() {
-            customerSelector.show();
+            // customerSelector.show(); // Overridden by autocomplete click handler
         });
 
         // Initialize Item Selector Modal
@@ -434,6 +435,64 @@ requirePagePermission('Create');
                 }
             }
         });
+
+        let availableCustomers = [];
+        let availableItems = [];
+
+        // Fetch Customers
+        $.get('../../Ajax/php/customer.php?action=list', function(res) {
+            if(res.status === 'success') {
+                availableCustomers = res.data;
+                initCustomerAutocomplete();
+            }
+        });
+
+        // Fetch Inventory Items
+        $.get('../../Ajax/php/inventory_item.php?action=list', function(res) {
+            if(res.status === 'success') {
+                // Filter active inventory items
+                availableItems = res.data.filter(i => i.is_active == 1);
+            }
+        });
+
+        function initCustomerAutocomplete() {
+            new Autocomplete({
+                inputSelector: '#customer_name',
+                minChars: 0,
+                fetchData: function(term, callback) {
+                    term = term.toLowerCase();
+                    const matches = availableCustomers.filter(c => 
+                        c.name.toLowerCase().includes(term) || 
+                        c.phone.includes(term)
+                    );
+                    callback(matches);
+                },
+                renderItem: function(c) {
+                    return `
+                        <div class="d-flex align-items-center">
+                            <div class="icon-circle bg-primary bg-opacity-10 text-primary me-2" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:50%">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold text-white">${c.name}</div>
+                                <small class="text-muted" style="color:#9ca3af!important">${c.phone}</small>
+                            </div>
+                        </div>
+                    `;
+                },
+                onSelect: function(c) {
+                    $('#customer_id').val(c.id);
+                    $('#customer_name').val(c.name);
+                    $('#customer_mobile').val(c.phone || '');
+                }
+            });
+            
+             // Show all on click of browse button
+            $('#browseCustomerBtn').click(function() {
+                $('#customer_name').focus().trigger('input');
+            });
+        }
+
 
         // Add item row
         $('#addItemBtn').click(function() {
@@ -460,7 +519,7 @@ requirePagePermission('Create');
                             <input type="hidden" class="item-id">
                             
                             <div class="input-group input-group-sm item-browse-group" style="display: none;">
-                                <input type="text" class="form-control item-display" placeholder="Click to browse..." readonly style="cursor: pointer;">
+                                <input type="text" class="form-control item-display" placeholder="Type or click..." autocomplete="off">
                                 <button type="button" class="btn btn-outline-secondary browse-item-btn">
                                     <i class="fas fa-search"></i>
                                 </button>
@@ -491,9 +550,53 @@ requirePagePermission('Create');
                         </div>
                     </div>
                 </div>`;
-            $('#itemsContainer').append(row);
+            const $row = $(row);
+            $('#itemsContainer').append($row);
             itemCounter++;
+            
+            // Init Autocomplete for this row (initially disabled/hidden but setup)
+            initItemRowAutocomplete($row);
         });
+
+        function initItemRowAutocomplete($row) {
+             const input = $row.find('.item-display');
+             
+             new Autocomplete({
+                inputSelector: input,
+                minChars: 0,
+                fetchData: function(term, callback) {
+                    if($row.find('.item-type').val() !== 'inventory') {
+                        callback([]);
+                        return;
+                    }
+                    term = term.toLowerCase();
+                    const matches = availableItems.filter(i => 
+                        i.item_code.toLowerCase().includes(term) || 
+                        i.item_name.toLowerCase().includes(term)
+                    ).slice(0, 15);
+                    callback(matches);
+                },
+                renderItem: function(i) {
+                     return `
+                        <div class="d-flex align-items-center">
+                            <div class="me-2">
+                                <div class="fw-bold text-white">${i.item_code}</div>
+                            </div>
+                            <div>
+                                <div class="text-white">${i.item_name}</div>
+                                <small class="text-muted" style="color:#9ca3af!important">In Stock: ${i.current_stock}</small>
+                            </div>
+                        </div>
+                    `;
+                },
+                onSelect: function(i) {
+                   $row.find('.item-id').val(i.id);
+                   $row.find('.item-display').val(i.item_code + ' - ' + i.item_name);
+                   $row.find('.item-price').val(i.unit_price || 0).trigger('input');
+                }
+            });
+        }
+
 
         // Handle item type change
         $(document).on('change', '.item-type', function() {
@@ -524,8 +627,8 @@ requirePagePermission('Create');
             row.find('.item-price').val(price).trigger('input');
         });
 
-        // Open item selector
-        $(document).on('click', '.browse-item-btn, .item-display', function() {
+        // Open item selector (browse button only)
+        $(document).on('click', '.browse-item-btn', function() {
             currentItemRow = $(this).closest('.item-row');
             quotationItemSelector.show();
         });
