@@ -69,15 +69,22 @@ try {
                 // Add items if provided
                 if (!empty($_POST['items'])) {
                     $items = json_decode($_POST['items'], true);
+                    if (json_last_error() !== JSON_ERROR_NONE) {
+                        error_log("Invoice AJAX - JSON decode error: " . json_last_error_msg());
+                    }
                     foreach ($items as $item) {
                         // Check inventory item security
                          if (!empty($item['item_id']) && $item['item_type'] == 'inventory') {
                             $invCheck = new InventoryItem($item['item_id']);
                             if (!$invCheck->id || $invCheck->company_id != $sessionCompanyId) {
+                                error_log("Invoice AJAX - Skipping invalid inventory item: " . $item['item_id']);
                                 continue; // Skip invalid
                             }
                         }
-                        $invoice->addItem($item);
+                        $addItemResult = $invoice->addItem($item);
+                        if (!$addItemResult) {
+                            error_log("Invoice AJAX - Failed to add item: " . json_encode($item));
+                        }
                     }
                 }
                 $response = [
