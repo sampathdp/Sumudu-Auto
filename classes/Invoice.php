@@ -21,6 +21,7 @@ class Invoice
     public $bill_type; // Added: cash or credit
     public $status;
     public $created_at;
+    public $error; // Added to capture errors
     private $db;
 
     public function __construct($id = null)
@@ -32,81 +33,21 @@ class Invoice
     }
 
     /**
-     * Load invoice by ID.
+     * Load invoice by ID
      */
-    private function loadById($id)
-    {
+    private function loadById($id) {
         $query = "SELECT * FROM invoices WHERE id = ?";
         $stmt = $this->db->prepareSelect($query, [$id]);
         if ($stmt) {
             $row = $stmt->fetch();
             if ($row) {
-                $this->populateFromArray($row);
+                foreach ($row as $key => $value) {
+                    if (property_exists($this, $key)) {
+                        $this->$key = $value;
+                    }
+                }
             }
         }
-    }
-
-    private function populateFromArray($row)
-    {
-        $this->id = $row['id'];
-        $this->company_id = $row['company_id'];
-        $this->branch_id = $row['branch_id'];
-        $this->service_id = $row['service_id'];
-        $this->invoice_number = $row['invoice_number'];
-        $this->customer_id = $row['customer_id'];
-        $this->customer_name = $row['customer_name'];
-        $this->subtotal = $row['subtotal'];
-        $this->tax_amount = $row['tax_amount'];
-        $this->discount_amount = $row['discount_amount'];
-        $this->total_amount = $row['total_amount'];
-        $this->payment_method = $row['payment_method'];
-        $this->payment_date = $row['payment_date'];
-        $this->account_id = $row['account_id'] ?? null; // Added
-        $this->bill_type = $row['bill_type'] ?? 'cash'; // Added
-        $this->status = $row['status'];
-        $this->created_at = $row['created_at'];
-    }
-
-    /**
-     * Get active invoice by service ID.
-     */
-    public function getByServiceId($serviceId)
-    {
-        $query = "SELECT * FROM invoices WHERE service_id = ? AND status != 'cancelled' LIMIT 1";
-        $stmt = $this->db->prepareSelect($query, [$serviceId]);
-        if ($stmt) {
-            $row = $stmt->fetch();
-            if ($row) {
-                $this->populateFromArray($row);
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Generate unique invoice number.
-     */
-    public function generateInvoiceNumber($companyId)
-    {
-        $prefix = 'INV-';
-        
-        $query = "SELECT invoice_number FROM invoices 
-                  WHERE company_id = ? AND invoice_number LIKE ? 
-                  ORDER BY id DESC LIMIT 1";
-        $stmt = $this->db->prepareSelect($query, [$companyId, $prefix . '%']);
-        $row = $stmt->fetch();
-        
-        $nextNumber = 1;
-        
-        if ($row && isset($row['invoice_number'])) {
-            $lastNumber = (int) str_replace($prefix, '', $row['invoice_number']);
-            if ($lastNumber > 0) {
-                $nextNumber = $lastNumber + 1;
-            }
-        }
-        
-        return $prefix . str_pad($nextNumber, 5, '0', STR_PAD_LEFT);
     }
 
     /**
@@ -115,12 +56,24 @@ class Invoice
     public function create()
     {
         if (empty($this->company_id)) {
+            $this->error = "Company ID is missing";
+            error_log("Invoice Creation Failed: Company ID missing");
             return false;
         }
 
         if (empty($this->invoice_number)) {
             $this->invoice_number = $this->generateInvoiceNumber($this->company_id);
         }
+
+        $dataToLog = [
+            'company_id' => $this->company_id,
+            'branch_id' => $this->branch_id,
+            'service_id' => $this->service_id,
+            'invoice_number' => $this->invoice_number,
+            'customer_id' => $this->customer_id,
+            'total_amount' => $this->total_amount
+        ];
+        error_log("Attempting to create invoice: " . json_encode($dataToLog));
 
         // Add account_id to insert
         $query = "INSERT INTO invoices (company_id, branch_id, service_id, invoice_number, customer_id, customer_name, subtotal, tax_amount, 
@@ -144,8 +97,15 @@ class Invoice
             $this->status ?? 'active'
         ]);
 
+        if (!$success) {
+            $this->error = $this->db->lastErrorMessage ?? "Database error";
+            error_log("Invoice Creation DB Error: " . $this->error);
+            return false;
+        }
+
         if ($success) {
             $this->id = $this->db->getLastInsertId();
+            error_log("Invoice Created Successfully. ID: " . $this->id);
             
             // Determine bill type - default to cash if not set
             $billType = $this->bill_type ?? 'cash';
@@ -159,6 +119,8 @@ class Invoice
                 
                 if (!empty($this->account_id)) {
                     $this->recordFinancialTransaction();
+                } else {
+                    error_log("Invoice Created but no default cash account found for transaction. Company: " . $this->company_id);
                 }
             } elseif ($billType === 'credit' && !empty($this->customer_id) && $this->total_amount > 0) {
                 // Credit Sale - Record Customer Ledger entry (customer owes money)
@@ -176,6 +138,30 @@ class Invoice
             }
         }
         return $success;
+    }
+    
+    /**
+     * Generate a unique invoice number for the company
+     */
+    public function generateInvoiceNumber($companyId) {
+        $prefix = "INV";
+        $date = date('Ymd');
+        
+        // Get last invoice number for today
+        $query = "SELECT invoice_number FROM invoices WHERE company_id = ? AND invoice_number LIKE ? ORDER BY id DESC LIMIT 1";
+        $stmt = $this->db->prepareSelect($query, [$companyId, $prefix . $date . '%']);
+        
+        $sequence = 1;
+        if ($stmt) {
+            $row = $stmt->fetch();
+            if ($row) {
+                // Extract sequence number from last invoice
+                $lastNumber = $row['invoice_number'];
+                $sequence = (int)substr($lastNumber, strlen($prefix . $date)) + 1;
+            }
+        }
+        
+        return $prefix . $date . str_pad($sequence, 4, '0', STR_PAD_LEFT);
     }
     
     /**
@@ -527,9 +513,10 @@ class Invoice
             // But if user wants to fast-track... for now leave as is.
 
             if (!$this->create()) {
+                error_log("createFromService: Invoice create() failed. Error: " . ($this->error ?? 'Unknown'));
                 return [
                     'success' => false,
-                    'message' => 'Failed to create invoice'
+                    'message' => 'Failed to create invoice: ' . ($this->error ?? 'Unknown error')
                 ];
             }
 
@@ -546,6 +533,7 @@ class Invoice
             ];
 
             if (!$this->addItem($itemData)) {
+                error_log("createFromService: Failed to add item. Error: " . ($this->db->lastErrorMessage ?? 'Unknown'));
                 $this->delete();
                 return [
                     'success' => false,
@@ -561,6 +549,7 @@ class Invoice
             ];
 
         } catch (Exception $e) {
+            error_log("Exception in createFromService: " . $e->getMessage());
             return [
                 'success' => false,
                 'message' => 'Error creating invoice: ' . $e->getMessage()

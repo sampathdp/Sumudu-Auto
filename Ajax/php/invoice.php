@@ -20,6 +20,7 @@ $action = $_POST['action'] ?? $_GET['action'] ?? '';
 try {
     switch ($action) {
         case 'create':
+            error_log("Invoice Create AJAX called. POST: " . json_encode($_POST));
             $invoice = new Invoice();
             $invoice->company_id = $sessionCompanyId;
             // Branch logic: default to session branch, allow override if needed
@@ -86,7 +87,7 @@ try {
                     'invoice_number' => $invoice->invoice_number
                 ];
             } else {
-                $response['message'] = 'Failed to create invoice';
+                $response['message'] = 'Failed to create invoice: ' . ($invoice->error ?? 'Unknown error');
             }
             break;
 
@@ -390,6 +391,7 @@ try {
             break;
             
         case 'create_from_service':
+             error_log("Invoice Create From Service AJAX called. POST: " . json_encode($_POST));
              $serviceId = (int)($_POST['service_id'] ?? 0);
              if (!$serviceId) {
                 $response['message'] = 'Invalid service ID';

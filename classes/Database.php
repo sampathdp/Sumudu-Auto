@@ -93,12 +93,23 @@ class Database
      * @param bool   $returnStatement  If true, returns PDOStatement; else returns true on success
      * @return PDOStatement|true|false
      */
+    public $lastErrorMessage = '';
+
+    /**
+     * Internal method to handle prepared statement execution.
+     *
+     * @param string $query
+     * @param array  $params
+     * @param bool   $returnStatement  If true, returns PDOStatement; else returns true on success
+     * @return PDOStatement|true|false
+     */
     private function executePrepared($query, $params = [], $returnStatement = false)
     {
         try {
             $stmt = $this->pdo->prepare($query);
             if (!$stmt) {
                 $error = 'Prepare failed.';
+                $this->lastErrorMessage = $error;
                 if ($this->isProduction) {
                     error_log($error);
                 } else {
@@ -116,9 +127,14 @@ class Database
             return true;
         } catch (PDOException $e) {
             $error = 'Query error: ' . $e->getMessage();
+            $this->lastErrorMessage = $error;
             if ($this->isProduction) {
                 error_log($error . ' | Query: ' . $query);
             } else {
+                 // If we are seeing JSON 'Failed to create...', and logic reaches here, 
+                 // it means we are in 'production' mode or die() is not stopping execution (impossible).
+                 // So we must be in production mode logic path.
+                 // But strictly following existing logic:
                 die($error . ' | Query: ' . $query);
             }
             return false;
